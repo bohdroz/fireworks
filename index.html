@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fireworks | Light Up The Night</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        /* Fireworks Canvas */
+        #fireworksCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100; /* Поверх усього, включаючи модальні вікна */
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #f59e0b;
+            border-radius: 4px;
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .cart-bounce {
+            animation: bounce 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.5); }
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.3);
+        }
+
+        /* Flying Image Animation Class */
+        .flying-img {
+            position: fixed;
+            z-index: 100;
+            pointer-events: none;
+            transition: all 0.8s cubic-bezier(0.19, 1, 0.22, 1);
+            opacity: 1;
+            border-radius: 0.75rem;
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.5);
+        }
+
+        /* Success & Delivery Animations */
+        @keyframes checkPop {
+            0% { transform: scale(0); opacity: 0; }
+            70% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-check { animation: checkPop 0.6s ease-out forwards; }
+
+        @keyframes truckDrive {
+            0% { left: -150px; transform: translateX(0); }
+            40% { left: 50%; transform: translateX(-50%); } 
+            60% { left: 50%; transform: translateX(-50%); } 
+            100% { left: 100%; transform: translateX(150px); }
+        }
+        .animate-truck { 
+            position: absolute;
+            animation: truckDrive 4s ease-in-out forwards; 
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Canvas для феєрверків -->
+    <canvas id="fireworksCanvas"></canvas>
+
+    <!-- Navigation -->
+    <nav class="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-slate-700 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <!-- Logo -->
+                <div class="flex-shrink-0 flex items-center cursor-pointer" onclick="window.scrollTo(0,0)">
+                    <i class="fa-solid fa-explosion text-amber-500 text-2xl mr-2"></i>
+                    <span class="font-bold text-xl tracking-wider text-white">Fire<span class="text-amber-500">works</span></span>
+                </div>
+
+                <!-- Cart Button -->
+                <button id="cart-btn" onclick="toggleCart()" class="relative p-2 text-gray-300 hover:text-white transition group">
+                    <i class="fa-solid fa-cart-shopping text-2xl group-hover:text-amber-400 transition"></i>
+                    <span id="cart-count" class="absolute top-0 right-0 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center transform scale-0 transition-transform duration-200">0</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Filters -->
+    <div id="catalog" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-4">
+        <div class="flex overflow-x-auto pb-4 gap-2 no-scrollbar justify-start sm:justify-center">
+            <button onclick="filterProducts('all')" class="filter-btn active bg-amber-500 text-slate-900 px-6 py-2 rounded-full font-semibold whitespace-nowrap transition hover:bg-amber-400">All</button>
+            <button onclick="filterProducts('rockets')" class="filter-btn bg-slate-700 text-white px-6 py-2 rounded-full font-semibold whitespace-nowrap transition hover:bg-slate-600">Rockets</button>
+            <button onclick="filterProducts('fountains')" class="filter-btn bg-slate-700 text-white px-6 py-2 rounded-full font-semibold whitespace-nowrap transition hover:bg-slate-600">Fountains</button>
+            <button onclick="filterProducts('cakes')" class="filter-btn bg-slate-700 text-white px-6 py-2 rounded-full font-semibold whitespace-nowrap transition hover:bg-slate-600">Finales</button>
+            <button onclick="filterProducts('sparklers')" class="filter-btn bg-slate-700 text-white px-6 py-2 rounded-full font-semibold whitespace-nowrap transition hover:bg-slate-600">Sparklers</button>
+        </div>
+    </div>
+
+    <!-- Product Grid -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 w-full">
+        <div id="product-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Products will be injected here via JS -->
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 border-t border-slate-800 py-8">
+        <div class="max-w-7xl mx-auto px-4 text-center text-gray-400">
+            <p>&copy; 2024 Fireworks. All rights reserved.</p>
+            <p class="text-sm mt-2 text-gray-600">Safety First: Always follow instructions on the label.</p>
+        </div>
+    </footer>
+
+    <!-- Cart Modal Overlay -->
+    <div id="cart-modal" class="fixed inset-0 z-[60] hidden" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm transition-opacity opacity-0" id="cart-backdrop" onclick="toggleCart()"></div>
+
+        <!-- Panel -->
+        <div class="fixed inset-y-0 right-0 flex max-w-full pl-0 sm:pl-10 pointer-events-none">
+            <div class="pointer-events-auto w-screen max-w-md transform translate-x-full transition-transform duration-300 ease-in-out" id="cart-panel">
+                <div class="flex h-full flex-col bg-slate-800 shadow-xl border-l border-slate-700 relative overflow-hidden">
+                    
+                    <!-- Cart Header -->
+                    <div class="flex items-start justify-between px-4 py-6 sm:px-6 bg-slate-900 z-10">
+                        <h2 class="text-lg font-medium text-white" id="slide-over-title">Your Order List</h2>
+                        <div class="ml-3 flex h-7 items-center">
+                            <button type="button" class="relative -m-2 p-2 text-gray-400 hover:text-white" onclick="toggleCart()">
+                                <span class="absolute -inset-0.5"></span>
+                                <span class="sr-only">Close panel</span>
+                                <i class="fa-solid fa-xmark text-xl"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Main Cart View (List + Actions) -->
+                    <div id="cart-main-view" class="flex flex-col flex-grow overflow-hidden">
+                        <!-- Cart Content -->
+                        <div class="flex-1 px-4 py-6 sm:px-6 overflow-y-auto">
+                            <div id="empty-cart-msg" class="text-center mt-10 hidden">
+                                <i class="fa-solid fa-clipboard-list text-4xl text-gray-600 mb-4"></i>
+                                <p class="text-gray-400">Your list is empty.</p>
+                                <button onclick="toggleCart()" class="mt-4 text-amber-500 hover:text-amber-400 font-medium">Browse Catalog &rarr;</button>
+                            </div>
+                            
+                            <div class="flow-root">
+                                <ul role="list" class="-my-6 divide-y divide-slate-700" id="cart-items">
+                                    <!-- Cart items injected here -->
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Checkout Section -->
+                        <div class="border-t border-slate-700 px-4 py-6 sm:px-6 bg-slate-900" id="checkout-section">
+                            <div id="checkout-actions">
+                                <p class="mt-0.5 text-sm text-gray-500 mb-6 text-center">Ready to celebrate?</p>
+                                <!-- Direct Order Button -->
+                                <button onclick="placeOrder()" class="flex w-full items-center justify-center rounded-md border border-transparent bg-amber-500 px-6 py-3 text-base font-medium text-slate-900 shadow-sm hover:bg-amber-400 transition transform active:scale-95">
+                                    Place Order Now
+                                </button>
+                                <div class="mt-6 flex justify-center text-center text-sm text-gray-400">
+                                    <p>
+                                        or
+                                        <button type="button" class="font-medium text-amber-500 hover:text-amber-400 ml-1" onclick="toggleCart()">
+                                            Continue Browsing
+                                            <span aria-hidden="true"> &rarr;</span>
+                                        </button>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Success & Animation View (Hidden by default) -->
+                    <div id="success-view" class="absolute inset-0 z-20 bg-slate-800 hidden flex-col items-center justify-center p-6 text-center">
+                        
+                        <!-- Step 1: Checkmark -->
+                        <div id="success-icon" class="mb-4 text-green-500 opacity-0 transform scale-0">
+                            <i class="fa-solid fa-circle-check text-8xl shadow-lg rounded-full bg-slate-900"></i>
+                        </div>
+                        
+                        <h3 id="success-text" class="text-2xl font-bold text-white mb-12 opacity-0 transition-opacity duration-500 leading-relaxed">
+                            Order Confirmed!<br>
+                            <!-- Смайлик видалено, додано стиль для білої обводки -->
+                            <span class="text-red-600 text-4xl font-serif italic mt-2 inline-block drop-shadow-md" style="-webkit-text-stroke: 1px white;">
+                                <i class="fa-solid fa-gift mr-2" style="-webkit-text-stroke: 0;"></i>Merry Christmas!
+                            </span>
+                        </h3>
+
+                        <!-- Step 2: Truck (Повернуто оригінальну іконку) -->
+                        <div id="delivery-anim" class="w-full relative h-32 opacity-0 transition-opacity duration-500 overflow-visible">
+                            <!-- Road -->
+                            <div class="absolute bottom-2 left-0 w-full h-1 bg-slate-600">
+                                <div class="w-20 h-0.5 bg-slate-500 absolute top-0 left-10"></div>
+                                <div class="w-20 h-0.5 bg-slate-500 absolute top-0 left-60"></div>
+                                <div class="w-20 h-0.5 bg-slate-500 absolute top-0 right-20"></div>
+                            </div>
+                            
+                            <!-- Оригінальна іконка вантажівки (Font Awesome) -->
+                            <div id="truck-icon" class="text-amber-500 text-6xl drop-shadow-md absolute" style="top: 50%; transform: translateY(-70%); left: -150px;">
+                                <i class="fa-solid fa-truck-fast"></i>
+                            </div>
+                        </div>
+                        
+                        <p id="delivery-text" class="text-gray-400 mt-4 opacity-0 transition-opacity duration-500 delay-500">Delivery in progress...</p>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-slate-800 border border-amber-500 text-white px-6 py-3 rounded-full shadow-2xl z-[70] transition-all duration-300 translate-y-20 opacity-0 flex items-center">
+        <i class="fa-solid fa-check-circle text-green-500 mr-2"></i>
+        <span id="toast-message">Item added to list</span>
+    </div>
+
+    <script>
+        // --- Data ---
+        const products = [
+            {
+                id: 101,
+                name: "Pyro Party Assortment",
+                category: "cakes",
+                image: "https://profireworks.com/wp-content/uploads/2025/02/PyroParty_Assortment.png",
+                desc: "The ultimate party mix featuring a massive variety of aerial effects."
+            },
+            {
+                id: 102,
+                name: "Storm Vader Rocket Bundle",
+                category: "rockets",
+                image: "https://optimise2.assets-servd.host/chorlton-fireworks/production/images/Tiny-Storm-Vader-bundle.jpg?w=1800&h=1800&q=80&fm=webp&fit=crop&crop=focalpoint&fp-x=0.5&fp-y=0.5&dm=1666085982&s=ee55d656c5731b9dc6f7c4b85460d87e",
+                desc: "High-impact rocket bundle designed for loud and colorful skies."
+            },
+            {
+                id: 103,
+                name: "Neon Blast Box",
+                category: "fountains",
+                image: "https://truman-road.pyrocity.com/wp-content/uploads/sites/39/2023/08/BC0322.png",
+                desc: "A vibrant selection of neon-colored fountains and ground effects."
+            },
+            {
+                id: 104,
+                name: "Thunder King Pack",
+                category: "cakes",
+                image: "https://cdn11.bigcommerce.com/s-n1ap85vklg/images/stencil/500x659/products/166/1206/pv143___99119.1711414435.jpg?c=1",
+                desc: "Compact power pack delivering intense thunder and lightning effects."
+            },
+            {
+                id: 1,
+                name: "Supernova Assault Set",
+                category: "rockets",
+                image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSDMat6M48vScqwlYfq-KWJBi1SPAjJMyFlUw&s",
+                desc: "A powerful assortment box featuring high-altitude rockets and aerial effects."
+            },
+            {
+                id: 2,
+                name: "Family Garden Selection",
+                category: "fountains",
+                image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRcL3RPf8UMjXSjTvzejQ73xWCYiBrM66G9oQ&s",
+                desc: "Perfect starter pack with fountains and roman candles for the whole family."
+            },
+            {
+                id: 3,
+                name: "Mega Barrage Crate",
+                category: "cakes",
+                image: "https://241fireworks.com/wp-content/uploads/2024/06/MegaPack_WithBrownBox-1-1.jpg",
+                desc: "Heavy-duty crate packed with our largest multi-shot cakes for a long show."
+            },
+            {
+                id: 4,
+                name: "TNT Party Box",
+                category: "sparklers",
+                image: "https://images.gopuff.com/blob/gopuffcatalogstorageprod/catalog-images-container/resize/cf/version=1_2,format=auto,fit=scale-down,width=800,height=800/57346581-d9e9-48ff-b877-e6d14f709da3-padded.png",
+                desc: "The essential party mix containing sparklers, snappers, and small fountains."
+            },
+            {
+                id: 5,
+                name: "Aerial Attack Box",
+                category: "rockets",
+                image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRwelWgSsP1vwUrq0u8DHZfVOAr6irr15LQoA&s",
+                desc: "Complete aerial display kit with diverse rockets and colors."
+            },
+            {
+                id: 6,
+                name: "Pyro Power Pack",
+                category: "cakes",
+                image: "https://rocketfireworks.ca/cdn/shop/files/Pyro-Power-Pack.png?v=1713904692",
+                desc: "High-energy selection featuring rapid-fire cakes and loud bangs."
+            },
+            {
+                id: 7,
+                name: "Pro Series Display",
+                category: "fountains",
+                image: "https://images.squarespace-cdn.com/content/v1/61a6ba138d6cf323a8c1bb7f/1643745256164-VS7HRAFWHZ622RXNRO5S/5203.png",
+                desc: "Professional-grade fountain assortment for a dazzling ground show."
+            },
+            {
+                id: 8,
+                name: "The Pyro Show Collection",
+                category: "cakes",
+                image: "https://pyroplanet.co.uk/cdn/shop/products/pyro-show_1134x.jpg?v=1604249619",
+                desc: "The ultimate backyard show in a box, featuring a mix of everything."
+            },
+            {
+                id: 9,
+                name: "Royal Flush Grand Finale",
+                category: "cakes",
+                image: "https://showtimefireworks.co.uk/wp-content/uploads/2023/03/Royal-flush-box-cakesbarragesrocket-packs-by-primed-fireworks.jpg",
+                desc: "A majestic finale box set guaranteed to end your night with a bang."
+            }
+        ];
+
+        let cart = [];
+
+        // --- FIREWORKS ENGINE ---
+        const canvas = document.getElementById('fireworksCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let particles = [];
+        let celebrationInterval;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Particle {
+            constructor(x, y, color, velocity) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.velocity = velocity;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.015 + 0.005;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2.5, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+
+            update() {
+                this.velocity.x *= 0.95;
+                this.velocity.y *= 0.95;
+                this.velocity.y += 0.1; // gravity
+                this.x += this.velocity.x;
+                this.y += this.velocity.y;
+                this.alpha -= this.decay;
+            }
+        }
+
+        function createFirework(x, y) {
+            const particleCount = 60;
+            const colors = ['#ff0040', '#ff00ff', '#4000ff', '#00ffff', '#00ff40', '#ffff00', '#ffffff', '#fbbf24'];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+
+            for (let i = 0; i < particleCount; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 5 + 2;
+                const velocity = {
+                    x: Math.cos(angle) * speed,
+                    y: Math.sin(angle) * speed
+                };
+                particles.push(new Particle(x, y, color, velocity));
+            }
+        }
+
+        function animateFireworks() {
+            requestAnimationFrame(animateFireworks);
+            
+            // Clear but keep trail
+            ctx.clearRect(0, 0, width, height);
+
+            particles.forEach((particle, index) => {
+                if (particle.alpha > 0) {
+                    particle.update();
+                    particle.draw();
+                } else {
+                    particles.splice(index, 1);
+                }
+            });
+        }
+        animateFireworks();
+
+        function launchCelebration() {
+            // Запуск салютів кожні 300мс протягом 4 секунд
+            celebrationInterval = setInterval(() => {
+                const x = Math.random() * width;
+                const y = Math.random() * (height / 2) + height/4;
+                createFirework(x, y);
+            }, 300);
+
+            // Зупинка салюту
+            setTimeout(() => {
+                clearInterval(celebrationInterval);
+            }, 4500);
+        }
+
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderProducts(products);
+            updateCartIcon();
+        });
+
+        // --- Product Rendering ---
+        function renderProducts(list) {
+            const container = document.getElementById('product-list');
+            container.innerHTML = '';
+
+            list.forEach(product => {
+                const card = document.createElement('div');
+                card.className = 'product-card bg-slate-800 rounded-xl shadow-lg border border-slate-700 flex flex-col fade-in h-full relative mt-6 overflow-visible';
+                
+                card.innerHTML = `
+                    <!-- Christmas Sale Ribbon -->
+                    <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-red-600 to-red-700 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg z-20 border-2 border-amber-400 whitespace-nowrap flex items-center">
+                        <i class="fa-solid fa-sleigh mr-2 text-amber-300"></i> Christmas Sale
+                    </div>
+
+                    <!-- White Frame with Gold Border -->
+                    <div class="mx-3 mt-5 bg-white p-2 rounded-lg border-4 border-double border-amber-200 shadow-inner relative group">
+                        <div class="h-48 overflow-hidden relative rounded-sm">
+                            <img src="${product.image}" alt="${product.name}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110">
+                        </div>
+                    </div>
+
+                    <div class="p-5 flex-grow flex flex-col pt-3">
+                        <h3 class="text-xl font-bold text-white mb-2 text-center">${product.name}</h3>
+                        <p class="text-gray-400 text-sm mb-4 flex-grow text-center">${product.desc}</p>
+                        <div class="flex items-center justify-center mt-auto pt-4 border-t border-slate-700 border-dashed">
+                            <button onclick="addToCart(${product.id}, event)" class="bg-amber-500 text-slate-900 hover:bg-amber-400 px-6 py-2 rounded-full font-bold transition flex items-center shadow-md active:scale-95 transform hover:-translate-y-0.5">
+                                <i class="fa-solid fa-gift mr-2"></i> Add to Cart
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // --- Filtering ---
+        function filterProducts(category) {
+            const buttons = document.querySelectorAll('.filter-btn');
+            buttons.forEach(btn => {
+                if (btn.innerText.toLowerCase().includes(category) || (category === 'all' && btn.innerText === 'All')) {
+                    btn.classList.add('bg-amber-500', 'text-slate-900');
+                    btn.classList.remove('bg-slate-700', 'text-white');
+                } else {
+                    btn.classList.remove('bg-amber-500', 'text-slate-900');
+                    btn.classList.add('bg-slate-700', 'text-white');
+                }
+            });
+
+            if (category === 'all') {
+                renderProducts(products);
+            } else {
+                const filtered = products.filter(p => p.category === category);
+                renderProducts(filtered);
+            }
+        }
+
+        // --- Cart Logic with Animation ---
+        function addToCart(id, event) {
+            const product = products.find(p => p.id === id);
+            const existingItem = cart.find(item => item.id === id);
+
+            if (existingItem) {
+                existingItem.qty++;
+            } else {
+                cart.push({ ...product, qty: 1 });
+            }
+
+            // Flying Animation Logic
+            if (event) {
+                const btn = event.target.closest('button');
+                const card = btn.closest('.product-card');
+                const img = card.querySelector('img');
+                const cartBtn = document.getElementById('cart-btn');
+
+                if (img && cartBtn) {
+                    const imgClone = img.cloneNode(true);
+                    const imgRect = img.getBoundingClientRect();
+                    const cartRect = cartBtn.getBoundingClientRect();
+
+                    imgClone.className = 'flying-img';
+                    imgClone.style.top = imgRect.top + 'px';
+                    imgClone.style.left = imgRect.left + 'px';
+                    imgClone.style.width = imgRect.width + 'px';
+                    imgClone.style.height = imgRect.height + 'px';
+                    
+                    document.body.appendChild(imgClone);
+                    void imgClone.offsetWidth;
+
+                    imgClone.style.top = (cartRect.top + cartRect.height / 2 - 20) + 'px'; 
+                    imgClone.style.left = (cartRect.left + cartRect.width / 2 - 20) + 'px';
+                    imgClone.style.width = '40px';
+                    imgClone.style.height = '40px';
+                    imgClone.style.opacity = '0.5';
+
+                    imgClone.addEventListener('transitionend', () => {
+                        imgClone.remove();
+                        updateCartIcon();
+                        renderCartItems();
+
+                        const badge = document.getElementById('cart-count');
+                        badge.classList.remove('scale-0');
+                        badge.classList.add('cart-bounce');
+                        setTimeout(() => badge.classList.remove('cart-bounce'), 500);
+                    });
+                } else {
+                    updateCartIcon();
+                    renderCartItems();
+                }
+            } else {
+                updateCartIcon();
+                renderCartItems();
+            }
+
+            showToast(`Added ${product.name} to list`);
+        }
+
+        function removeFromCart(id) {
+            cart = cart.filter(item => item.id !== id);
+            updateCartIcon();
+            renderCartItems();
+        }
+
+        function changeQty(id, delta) {
+            const item = cart.find(item => item.id === id);
+            if (item) {
+                item.qty += delta;
+                if (item.qty <= 0) {
+                    removeFromCart(id);
+                } else {
+                    renderCartItems();
+                    updateCartIcon();
+                }
+            }
+        }
+
+        function updateCartIcon() {
+            const count = cart.reduce((acc, item) => acc + item.qty, 0);
+            const badge = document.getElementById('cart-count');
+            badge.innerText = count;
+            if(count > 0) badge.classList.remove('scale-0');
+            else badge.classList.add('scale-0');
+        }
+
+        function renderCartItems() {
+            const list = document.getElementById('cart-items');
+            const emptyMsg = document.getElementById('empty-cart-msg');
+            const checkoutSection = document.getElementById('checkout-section');
+            
+            list.innerHTML = '';
+
+            if (cart.length === 0) {
+                emptyMsg.classList.remove('hidden');
+                checkoutSection.classList.add('hidden');
+            } else {
+                emptyMsg.classList.add('hidden');
+                checkoutSection.classList.remove('hidden');
+
+                cart.forEach(item => {
+                    const li = document.createElement('li');
+                    li.className = 'flex py-6 fade-in';
+                    li.innerHTML = `
+                        <div class="h-24 w-24 flex-shrink-0 overflow-hidden rounded-md border border-slate-700">
+                            <img src="${item.image}" alt="${item.name}" class="h-full w-full object-cover object-center">
+                        </div>
+                        <div class="ml-4 flex flex-1 flex-col">
+                            <div>
+                                <div class="flex justify-between text-base font-medium text-white">
+                                    <h3>${item.name}</h3>
+                                </div>
+                            </div>
+                            <div class="flex flex-1 items-end justify-between text-sm mt-4">
+                                <div class="flex items-center border border-slate-600 rounded">
+                                    <button onclick="changeQty(${item.id}, -1)" class="px-2 py-1 text-gray-400 hover:text-white">-</button>
+                                    <span class="px-2 text-white font-mono">${item.qty}</span>
+                                    <button onclick="changeQty(${item.id}, 1)" class="px-2 py-1 text-gray-400 hover:text-white">+</button>
+                                </div>
+                                <button type="button" onclick="removeFromCart(${item.id})" class="font-medium text-red-400 hover:text-red-300">Remove</button>
+                            </div>
+                        </div>
+                    `;
+                    list.appendChild(li);
+                });
+            }
+        }
+
+        // --- Modal & UI Interaction ---
+        function toggleCart() {
+            const modal = document.getElementById('cart-modal');
+            const backdrop = document.getElementById('cart-backdrop');
+            const panel = document.getElementById('cart-panel');
+
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                renderCartItems();
+                setTimeout(() => {
+                    backdrop.classList.remove('opacity-0');
+                    panel.classList.remove('translate-x-full');
+                }, 10);
+            } else {
+                backdrop.classList.add('opacity-0');
+                panel.classList.add('translate-x-full');
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        // --- ORDER LOGIC ---
+        function placeOrder() {
+            if(cart.length === 0) return;
+
+            // Запускаємо феєрверк!
+            launchCelebration();
+
+            document.getElementById('cart-main-view').classList.add('hidden');
+            document.getElementById('slide-over-title').innerText = "Processing Order...";
+            
+            const successView = document.getElementById('success-view');
+            successView.classList.remove('hidden');
+            successView.classList.add('flex');
+
+            const checkIcon = document.getElementById('success-icon');
+            const successText = document.getElementById('success-text');
+            
+            checkIcon.classList.remove('opacity-0');
+            checkIcon.classList.add('animate-check');
+            
+            setTimeout(() => {
+                successText.classList.remove('opacity-0');
+            }, 300);
+
+            // Анімація вантажівки
+            setTimeout(() => {
+                const deliveryAnim = document.getElementById('delivery-anim');
+                const truck = document.getElementById('truck-icon');
+                const deliveryText = document.getElementById('delivery-text');
+                
+                deliveryAnim.classList.remove('opacity-0');
+                deliveryText.classList.remove('opacity-0');
+                
+                truck.classList.add('animate-truck');
+            }, 1800);
+
+            // Cleanup
+            setTimeout(() => {
+                cart = [];
+                updateCartIcon();
+                toggleCart();
+                
+                setTimeout(() => {
+                    document.getElementById('cart-main-view').classList.remove('hidden');
+                    successView.classList.add('hidden');
+                    successView.classList.remove('flex');
+                    
+                    checkIcon.classList.remove('animate-check');
+                    checkIcon.classList.add('opacity-0');
+                    successText.classList.add('opacity-0');
+                    
+                    document.getElementById('delivery-anim').classList.add('opacity-0');
+                    document.getElementById('delivery-text').classList.add('opacity-0');
+                    document.getElementById('truck-icon').classList.remove('animate-truck');
+                    
+                    document.getElementById('slide-over-title').innerText = "Your Order List";
+                }, 500);
+            }, 5500);
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const msgEl = document.getElementById('toast-message');
+            msgEl.innerText = message;
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
